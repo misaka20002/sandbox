@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-def _read_int(name: str, default: int, minimum: int = 1) -> int:
+def _read_int(
+    name: str,
+    default: int,
+    minimum: int = 1,
+    maximum: int | None = None,
+) -> int:
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -16,6 +21,8 @@ def _read_int(name: str, default: int, minimum: int = 1) -> int:
         raise RuntimeError(f"{name} must be an integer") from exc
     if value < minimum:
         raise RuntimeError(f"{name} must be at least {minimum}")
+    if maximum is not None and value > maximum:
+        raise RuntimeError(f"{name} must be at most {maximum}")
     return value
 
 
@@ -23,8 +30,8 @@ def _resolve_token_hash() -> str:
     """Return the expected SHA-256 hex digest of the bearer token.
 
     ``SANDBOX_TOKEN`` holds the raw token in plaintext and takes precedence: it
-    is hashed at startup so operators can paste the token straight into their
-    platform's environment variables (for example the Vercel deploy prompt).
+    is hashed at startup so operators can supply a plaintext token when not
+    using the Docker Compose SHA-256-only deployment.
     When it is unset we fall back to ``SANDBOX_TOKEN_SHA256``, a pre-computed
     digest that ships as the image default.
     """
@@ -45,6 +52,8 @@ class Settings:
     session_root: Path
     cache_root: Path
     token_sha256: str
+    session_retention_minutes: int
+    max_session_bytes: int
     max_timeout_seconds: int
     default_timeout_seconds: int
     max_output_bytes: int
@@ -67,6 +76,12 @@ class Settings:
             ),
             cache_root=Path(os.getenv("SANDBOX_CACHE_ROOT", "/tmp/sandbox-cache")),
             token_sha256=token_hash,
+            session_retention_minutes=_read_int(
+                "SESSION_RETENTION_MINUTES", 60, 1, 1440
+            ),
+            max_session_bytes=_read_int(
+                "MAX_SESSION_BYTES", 268_435_456, 1_048_576
+            ),
             max_timeout_seconds=max_timeout,
             default_timeout_seconds=default_timeout,
             max_output_bytes=_read_int("MAX_OUTPUT_BYTES", 2_000_000, 1024),

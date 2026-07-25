@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class InputFile(BaseModel):
@@ -45,10 +45,24 @@ class OutputFile(BaseModel):
 
 class ExecRequest(BaseModel):
     command: str | list[str]
+    new_session: bool = Field(
+        default=False,
+        description="Create a new session, optionally replacing replace_session_id.",
+    )
     session_id: str | None = Field(
         default=None,
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
         description="Reuse the same ID to retain files and installed packages.",
+    )
+    replace_session_id: str | None = Field(
+        default=None,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+        description="Current session to delete when new_session is true.",
+    )
+    owner_key: str | None = Field(
+        default=None,
+        pattern=r"^[a-f0-9]{64}$",
+        description="Opaque SHA-256 owner scope supplied by a trusted client.",
     )
     cwd: str | None = Field(
         default=None,
@@ -82,6 +96,16 @@ class ExecRequest(BaseModel):
         elif not value or any(not item for item in value):
             raise ValueError("command cannot be empty")
         return value
+
+    @model_validator(mode="after")
+    def session_arguments_must_be_consistent(self) -> "ExecRequest":
+        if self.new_session and self.session_id:
+            raise ValueError("new_session=true cannot be combined with session_id")
+        if self.replace_session_id and not self.new_session:
+            raise ValueError("replace_session_id requires new_session=true")
+        if self.replace_session_id and not self.owner_key:
+            raise ValueError("replace_session_id requires owner_key")
+        return self
 
     @field_validator("python_packages", "node_packages")
     @classmethod
@@ -130,7 +154,11 @@ class ExecResponse(BaseModel):
     session_id: str
     cwd: str
     status: Literal[
-        "completed", "setup_failed", "timed_out", "output_limit_exceeded"
+        "completed",
+        "setup_failed",
+        "timed_out",
+        "output_limit_exceeded",
+        "storage_limit",
     ]
     exit_code: int
     stdout: str
@@ -141,6 +169,10 @@ class ExecResponse(BaseModel):
     setup_steps: list[StepResult] = Field(default_factory=list)
     files: list[OutputFile] = Field(default_factory=list)
     files_truncated: bool = False
+    session_created: bool = False
+    replaced_session_id: str | None = None
+    replaced_session_removed: bool = False
+    expires_at: float | None = None
 
 
 class HealthResponse(BaseModel):
@@ -156,6 +188,10 @@ class HealthResponse(BaseModel):
     max_file_output_bytes: int
     max_stream_file_output_bytes: int
     max_output_files: int
+    session_retention_minutes: int
+    max_session_bytes: int
+    indexed_sessions: int
+    next_expiry: float | None
 
 
 class CleanupResponse(BaseModel):

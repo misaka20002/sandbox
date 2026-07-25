@@ -34,8 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     && rm -rf /var/lib/apt/lists/*
 
-# Keep browser and font payloads out of the already-large base tools layer.
-# Vercel uploads each OCI layer separately and rejects oversized blobs.
+# Keep browser and font payloads in separate layers for faster rebuilds.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
@@ -58,9 +57,9 @@ RUN uv pip install --system -r /tmp/requirements.txt \
     && rm -rf /root/.cache/uv
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash sandbox \
-    && mkdir -p /app /tmp/sandbox-sessions /tmp/sandbox-cache \
+    && mkdir -p /app /data/sessions /tmp/sandbox-cache \
     && chown -R sandbox:sandbox \
-        /app /tmp/sandbox-sessions /tmp/sandbox-cache /home/sandbox
+        /app /data/sessions /tmp/sandbox-cache /home/sandbox
 
 COPY --chown=sandbox:sandbox app /app/app
 COPY --chown=sandbox:sandbox tools /app/tools

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 
@@ -17,7 +18,9 @@ def required_environment(name: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Call the private sandbox API")
     parser.add_argument("command")
-    parser.add_argument("--session", default="robot-demo")
+    parser.add_argument("--session")
+    parser.add_argument("--replace-session")
+    parser.add_argument("--owner", default="robot-demo")
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--python-package", action="append", default=[])
     parser.add_argument("--node-package", action="append", default=[])
@@ -25,6 +28,10 @@ def main() -> None:
 
     api_url = required_environment("SANDBOX_API_URL").rstrip("/")
     sandbox_token = required_environment("SANDBOX_TOKEN")
+    owner_key = hashlib.sha256(arguments.owner.encode("utf-8")).hexdigest()
+    new_session = not arguments.session
+    if arguments.replace_session:
+        new_session = True
     response = httpx.post(
         f"{api_url}/v1/exec",
         headers={
@@ -32,6 +39,9 @@ def main() -> None:
         },
         json={
             "session_id": arguments.session,
+            "new_session": new_session,
+            "replace_session_id": arguments.replace_session,
+            "owner_key": owner_key,
             "command": arguments.command,
             "timeout_seconds": arguments.timeout,
             "python_packages": arguments.python_package,
