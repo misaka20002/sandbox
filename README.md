@@ -20,6 +20,8 @@
 - 支持通过 URL 下载消息图片、音频和视频，避免占用 Vercel 请求体额度
 - 普通 `/v1/exec` 接口继续以内联 Base64 返回小文件
 - `/v1/exec-stream` 以 NDJSON 分块返回较大的图片、音频和视频，机器人端边接收边落盘
+- 输出目录中的任意类型文件（txt/docx/pdf/xlsx/zip 等）都会带正确 MIME 流式返回，机器人端可作为文件发给用户
+- 预装文档库（`python-docx`、`openpyxl`、`reportlab`、`pypdf`），可生成 Word/Excel/PDF 并作为文件下发
 - 自动将 `/tmp/inputs`、`/tmp/outputs` 映射到当前会话，兼容模型习惯性的 `cd /tmp`
 - 超时后终止整个进程组
 - 限制并发、命令输出和返回文件体积

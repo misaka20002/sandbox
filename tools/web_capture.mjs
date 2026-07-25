@@ -65,6 +65,35 @@ try {
     })
     const pages = await browser.pages()
     const page = pages[0] || await browser.newPage()
+    // Present ONE self-consistent Chrome identity. The stealth plugin only
+    // rewrites the JS navigator.userAgent; the HTTP User-Agent header and the
+    // Client Hints (Sec-CH-UA / navigator.userAgentData) still leak
+    // "HeadlessChrome" or a version that disagrees with the UA string, which is
+    // exactly what bot detectors (e.g. BrowserScan) flag as a fake User-Agent.
+    // Derive everything from the real browser version and keep the honest Linux
+    // platform so navigator.platform stays consistent.
+    const realUserAgent = await browser.userAgent()
+    const userAgent = realUserAgent.replace(/HeadlessChrome/g, 'Chrome')
+    const fullVersion = (userAgent.match(/Chrome\/([\d.]+)/) || [, '124.0.0.0'])[1]
+    const majorVersion = fullVersion.split('.')[0]
+    const brands = [
+      { brand: 'Chromium', version: majorVersion },
+      { brand: 'Google Chrome', version: majorVersion },
+      { brand: 'Not.A/Brand', version: '24' },
+    ]
+    await page.setUserAgent(userAgent, {
+      architecture: 'x86',
+      bitness: '64',
+      brands,
+      fullVersion,
+      fullVersionList: brands.map(({ brand }) => ({ brand, version: fullVersion })),
+      mobile: false,
+      model: '',
+      platform: 'Linux',
+      platformVersion: '6.1.0',
+      wow64: false,
+    })
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' })
     await page.setViewport({ width: options.width, height: options.height, deviceScaleFactor: 1 })
     page.setDefaultNavigationTimeout(options.timeoutMs)
     if (options.cookies) {
