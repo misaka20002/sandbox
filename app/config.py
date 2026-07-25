@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +17,27 @@ def _read_int(name: str, default: int, minimum: int = 1) -> int:
     if value < minimum:
         raise RuntimeError(f"{name} must be at least {minimum}")
     return value
+
+
+def _resolve_token_hash() -> str:
+    """Return the expected SHA-256 hex digest of the bearer token.
+
+    ``SANDBOX_TOKEN`` holds the raw token in plaintext and takes precedence: it
+    is hashed at startup so operators can paste the token straight into their
+    platform's environment variables (for example the Vercel deploy prompt).
+    When it is unset we fall back to ``SANDBOX_TOKEN_SHA256``, a pre-computed
+    digest that ships as the image default.
+    """
+    raw_token = os.getenv("SANDBOX_TOKEN", "").strip()
+    if raw_token:
+        return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    token_hash = os.getenv("SANDBOX_TOKEN_SHA256", "").strip().lower()
+    if token_hash and (
+        len(token_hash) != 64
+        or any(character not in "0123456789abcdef" for character in token_hash)
+    ):
+        raise RuntimeError("SANDBOX_TOKEN_SHA256 must be a SHA-256 hex digest")
+    return token_hash
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,12 +60,7 @@ class Settings:
         default_timeout = min(
             _read_int("DEFAULT_TIMEOUT_SECONDS", 120), max_timeout
         )
-        token_hash = os.getenv("SANDBOX_TOKEN_SHA256", "").strip().lower()
-        if token_hash and (
-            len(token_hash) != 64
-            or any(character not in "0123456789abcdef" for character in token_hash)
-        ):
-            raise RuntimeError("SANDBOX_TOKEN_SHA256 must be a SHA-256 hex digest")
+        token_hash = _resolve_token_hash()
         return cls(
             session_root=Path(
                 os.getenv("SANDBOX_SESSION_ROOT", "/tmp/sandbox-sessions")

@@ -2,6 +2,14 @@
 
 面向私人机器人和小群使用的开放式联网沙盒。项目现在以 Vercel Container Images 为主要部署目标，使用 `Dockerfile.vercel` 在 Fluid Compute 上运行 FastAPI、Shell、Python、Node.js、FFmpeg、ImageMagick 和常用图片处理库。
 
+## 一键部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsyfantasy%2Fsandbox&env=SANDBOX_TOKEN&envDescription=%E8%AE%BF%E9%97%AE%E6%B2%99%E7%9B%92%E7%9A%84%20Bearer%20%E6%98%8E%E6%96%87%20Token%EF%BC%9B%E5%AE%A2%E6%88%B7%E7%AB%AF%E7%94%A8%20Authorization%3A%20Bearer%20%3Ctoken%3E%20%E6%90%BA%E5%B8%A6&envLink=https%3A%2F%2Fgithub.com%2Fsyfantasy%2Fsandbox%23%E9%83%A8%E7%BD%B2%E5%88%B0-vercel&project-name=sandbox&repository-name=sandbox)
+
+点击后 Vercel 会克隆本仓库并进入导入流程，**提示你填写 `SANDBOX_TOKEN`**（明文，自定义一个强口令即可）。服务端启动时会自动对它做 SHA-256，客户端用 `Authorization: Bearer <你的口令>` 调用。Vercel 自动识别根目录的 `Dockerfile.vercel` 完成容器构建。
+
+> 一键部署要求本仓库为 Public，且账号已开启 Container Images（Beta）。手动部署或轮换 Token 见[部署到 Vercel](#部署到-vercel)。
+
 ## 功能
 
 - 执行任意 Shell 命令或 argv 命令
@@ -57,10 +65,14 @@ MAX_TIMEOUT_SECONDS=300
 2. 在项目设置中添加环境变量：
 
    ```text
-   VERCEL_SUPPORT_LARGE_FUNCTIONS=1
+   SANDBOX_TOKEN=<你的明文 Bearer Token>
    ```
 
-   `Dockerfile.vercel` 已包含当前本地工具所对应的 Token 哈希。以后轮换 Token 时，推荐另外设置 `SANDBOX_TOKEN_SHA256` 环境变量覆盖镜像默认值。
+   服务端启动时会自动对 `SANDBOX_TOKEN` 做 SHA-256，因此 Vercel 里只需填明文，不用手动算哈希。轮换 Token 只需改这个值并重新部署。
+
+   `Dockerfile.vercel` 内置了一个默认 `SANDBOX_TOKEN_SHA256`，仅在未设置 `SANDBOX_TOKEN` 时作为回退。若你更想直接管理哈希，也可以改设 `SANDBOX_TOKEN_SHA256`（预计算摘要）覆盖镜像默认值；两者同时存在时以明文 `SANDBOX_TOKEN` 为准。
+
+   如果部署时遇到镜像体积相关报错，可再补一个 `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`。
 
 3. 从项目根目录部署：
 
